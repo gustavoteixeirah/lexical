@@ -48,6 +48,7 @@ import {
   $isLineBreakNode,
   $isRangeSelection,
   $isRootNode,
+  $isTabNode,
   $isTextNode,
   DecoratorNode,
   ElementNode,
@@ -194,8 +195,18 @@ export function getTextDirection(text: string): 'ltr' | 'rtl' | null {
   return null;
 }
 
+/**
+ * Return true if the TextNode is a TabNode or is in token mode.
+ */
+export function $isTokenOrTab(node: TextNode): boolean {
+  return $isTabNode(node) || node.isToken();
+}
+
+/**
+ * Return true if the TextNode is a TabNode, or is in token or segmented mode.
+ */
 export function $isTokenOrSegmented(node: TextNode): boolean {
-  return node.isToken() || node.isSegmented();
+  return $isTokenOrTab(node) || node.isSegmented();
 }
 
 /**
@@ -816,7 +827,7 @@ export function $shouldInsertTextAfterOrBeforeTextNode(
   }
   const offset = selection.anchor.offset;
   const parent = node.getParentOrThrow();
-  const isToken = node.isToken();
+  const isToken = $isTokenOrTab(node);
   if (offset === 0) {
     return (
       !node.canInsertTextBefore() ||
@@ -1441,7 +1452,11 @@ export function $isRootOrShadowRoot(
 }
 
 /**
- * Returns a shallow clone of node with a new key
+ * Returns a shallow clone of node with a new key. All properties of the node
+ * will be copied to the new node (by `clone` and then `afterCloneFrom`),
+ * except those related to parent/sibling/child
+ * relationships in the `EditorState`. This means that the copy must be
+ * separately added to the document, and it will not have any children.
  *
  * @param node - The node to be copied.
  * @returns The copy of the node.
@@ -1449,6 +1464,7 @@ export function $isRootOrShadowRoot(
 export function $copyNode<T extends LexicalNode>(node: T): T {
   const copy = node.constructor.clone(node) as T;
   $setNodeKey(copy, null);
+  copy.afterCloneFrom(node);
   return copy;
 }
 
